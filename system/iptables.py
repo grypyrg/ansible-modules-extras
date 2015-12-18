@@ -54,12 +54,14 @@ options:
     default: filter
     choices: [ "filter", "nat", "mangle", "raw", "security" ]
   state:
-    description: Whether the rule should be absent or present.
+    description: 
+      - Whether the rule should be absent or present.
     required: false
     default: present
     choices: [ "present", "absent" ]
   ip_version:
-    description: Which version of the IP protocol this rule should apply to.
+    description: 
+      - Which version of the IP protocol this rule should apply to.
     required: false
     default: ipv4
     choices: [ "ipv4", "ipv6" ]
@@ -208,6 +210,10 @@ options:
       - "ctstate is a list of the connection states to match in the conntrack module.
         Possible states are: 'INVALID', 'NEW', 'ESTABLISHED', 'RELATED', 'UNTRACKED', 'SNAT', 'DNAT'"
     required: false
+  limit:
+    description:
+      - "Specifies the maximum average number of matches to allow per second. The number can specify units explicitly, using `/second', `/minute', `/hour' or `/day', or parts of them (so `5/second' is the same as `5/s')."
+    required: false
 '''
 
 EXAMPLES = '''
@@ -242,7 +248,12 @@ def append_comm(rule, param):
 def append_conntrack(rule, param):
     if param:
         rule.extend(['-m'])
-        rule.extend(['conntrack'])
+        rule.extend(['state'])
+
+def append_limit(rule, param):
+    if param:
+        rule.extend(['-m'])
+        rule.extend(['limit'])
 
 
 def construct_rule(params):
@@ -262,8 +273,11 @@ def construct_rule(params):
     append_param(rule, params['to_ports'], '--to-ports', False)
     append_comm(rule, params['comment'])
     append_param(rule, params['comment'], '--comment', False)
-    append_conntrack(rule, params['ctstate'])
-    append_param(rule, ','.join(params['ctstate']), '--ctstate', False)
+    if params['ctstate']:
+        append_conntrack(rule, params['ctstate'])
+        append_param(rule, ','.join(params['ctstate']), '--state', False)
+    append_limit(rule, params['limit'])
+    append_param(rule, params['limit'], '--limit', False)
     return rule
 
 
@@ -313,7 +327,8 @@ def main():
             destination_port=dict(required=False, default=None, type='str'),
             to_ports=dict(required=False, default=None, type='str'),
             comment=dict(required=False, default=None, type='str'),
-            ctstate=dict(required=False, default=None, type='list'),
+            ctstate=dict(required=False, default=[], type='list'),
+            limit=dict(required=False, default=None, type='str'),
         ),
     )
     args = dict(
